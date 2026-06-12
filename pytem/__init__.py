@@ -2,4 +2,4 @@
 # -*- coding: utf-8 -*-
 """Time-domain electromagnetics Data Manager."""
 
-from .tem import TDEM
+from .tem import TEM

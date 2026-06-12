@@ -4,10 +4,10 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from stem import readSettings, sTEMRhoModelling
-# from stem import sTEMBlockModelling
+from .stem import readSettings, sTEMRhoModelling
+# from .stem import sTEMBlockModelling
+from .tools import rhoa, skinDepthTEM
 import pygimli as pg
-from tools import rhoa, skinDepthTEM
 
 
 # %%
@@ -85,9 +85,18 @@ class TEM:
     def showRhoa(self, rmin=10, rmax=500, **kwargs):
         """Show apparent resistivity."""
         kwargs.setdefault("cmap", "Spectral_r")
-        plt.imshow(np.log10(self.RHOA.T),
-                   vmin=np.log10(rmin), vmax=np.log10(rmax),
-                   **kwargs)
+        fig, ax = plt.subplots()
+
+        im = ax.imshow(np.log10(self.RHOA.T),
+                       vmin=np.log10(rmin), vmax=np.log10(rmax),
+                       **kwargs)
+        ax.set_xlabel("Station")
+        yt = np.arange(0, len(self.t), 3)
+        ax.set_yticks(yt)
+        ax.set_yticklabels([f"{self.t[int(i)]:.1e}" for i in yt])
+        ax.set_ylabel("Time (s)")
+        fig.colorbar(im, ax=ax, orientation="horizontal", label="log10(Rhoa) [Ohm m]")
+        return ax
 
     def showSounding(self, n=0, rhoa=False, ax=None, **kwargs):
         """Show single sounding."""
