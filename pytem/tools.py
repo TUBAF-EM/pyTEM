@@ -8,7 +8,16 @@ def rhoa(t, dbzdt, m=1.0):
 
 # dr = dr/du * du = -2/3 r / u *du => |dr/r| = 2/3 |dr/r|
 
+
 def skinDepthTEM(t, rho):
     """Return diffusion (skin) depth of TEM."""
     return np.sqrt(2 * t * rho / mu0)
+
+
+def bandpass(inp, p_dict):
+    """Butterworth-type filter (implemented from simpegEM1D.Waveforms.py)."""
+    cutofffreq = 1e8  # Determined empirically for TEM-FAST
+    h = (1 + 1j*p_dict["freq"]/cutofffreq)**-1
+    h *= (1 + 1j*p_dict["freq"]/3e5)**-1
+    p_dict["EM"] *= h[:, None]
 

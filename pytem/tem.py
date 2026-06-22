@@ -4,8 +4,8 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from .stem import readSettings, sTEMRhoModelling
-# from .stem import sTEMBlockModelling
+from .stem import readSettings
+from .temmodelling import sTEMRhoModelling, sTEMBlockModelling
 from .tools import rhoa, skinDepthTEM
 import pygimli as pg
 
@@ -13,11 +13,14 @@ import pygimli as pg
 # %%
 class TEM:
     """Class for processing TEM data."""
+
     def __init__(self, filename:str=None, cfg=None, **kwargs):
         self.thk = kwargs.pop("thk", np.arange(2, 28, 2))
         if cfg is None and filename.lower().endswith(".xyz"):
+            # check if corresponding settings (gex) file exists
             if Path(filename[:-4]+".gex").exists():
                 cfg = filename[:-4]+".gex"
+
         if cfg is not None:
             if isinstance(cfg, str):
                 self.readCFG(cfg)
@@ -27,7 +30,7 @@ class TEM:
             self.readData(filename)
 
     def __str__(self):
-        """String representation."""
+        """Return string representation."""
         return f"TEM profile with {len(self.DATA):d} soundings\n" + \
             f"{len(self.t):d} times ({min(self.t)}-{max(self.t)})"
 
