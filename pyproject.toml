@@ -38,7 +38,10 @@ classifiers = [
 dependencies = [
     "setuptools>=75.8.2",
     "pygimli",
-    "empymod"
+    "empymod",
+    "pandas",
+    "matplotlib",
+    "utm"
 ]
 
 [project.urls]

@@ -49,9 +49,9 @@ class TEM:
         if ax is None:
             fig, ax = plt.subplots()
 
-        ax.plot(self.cfg["tL"], self.cfg["vL"], label=label+" LM")
-        ax.plot(self.cfg["tH"], self.cfg["vH"], label=label+" HM")
-        ax.set_xlabel("t [s]")
+        ax.plot(self.cfg["tL"]*1e6, self.cfg["vL"], label=label+" LM")
+        ax.plot(self.cfg["tH"]*1e6, self.cfg["vH"], label=label+" HM")
+        ax.set_xlabel("t [µs]")
         ax.legend()
         ax.grid()
         return ax
@@ -93,7 +93,7 @@ class TEM:
         ax.set_xlabel("Station")
         yt = np.arange(0, len(self.t), 3)
         ax.set_yticks(yt)
-        ax.set_yticklabels([f"{self.t[int(i)]:.1e}" for i in yt])
+        ax.set_yticklabels([f"{self.t[int(i)]:.0e}".replace("e-0", "e-") for i in yt])
         ax.set_ylabel("Time (s)")
         fig.colorbar(im, ax=ax, orientation="horizontal", label="log10(Rhoa) [Ohm m]")
         return ax
@@ -215,7 +215,7 @@ class TEM:
 
         ax[1].grid()
 
-    def invertAll(self, show=True):
+    def invertAll(self, show=True, minerr=0.01):
         """Invert all data individually."""
         self.invertSounding(0, show=False)
         res = self.res1d
@@ -223,7 +223,7 @@ class TEM:
         self.CHI2 = [self.inv1d.chi2()]
         for n in range(1, len(self.DATA)):
             data = np.abs(self.DATA[n])
-            err = np.maximum(self.SD[n], 0.01)
+            err = np.maximum(self.SD[n], minerr)
             err[self.DATA[n] <1e-15] = 1e8
             err[err > 1] = 1e8
             res = self.inv1d.run(data, err, verbose=0, startModel=res)
