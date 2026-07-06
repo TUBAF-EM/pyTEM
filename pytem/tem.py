@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from .stem import readSettings
-from .temmodelling import sTEMRhoModelling, sTEMBlockModelling
+from .temmodelling import TEMRhoModelling, TEMBlockModelling
 from .tools import rhoa, skinDepthTEM
 import pygimli as pg
 
@@ -44,7 +44,7 @@ class TEM:
         if thk is not None:
             self.thk = thk
 
-        self.f = sTEMRhoModelling(thk=self.thk, cfg=self.cfg)
+        self.f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
         self.t = self.f.t
 
     def showWaveform(self, label="", ax=None):
@@ -246,6 +246,15 @@ class TEM:
         pass
 
     def showResults(self, usepos=True, **kwargs):
+        """Show resulting stitched 1D models.
+
+        Parameters (passed to showStitchedModels)
+        ----------
+        cMin, cMax : float [10/500]
+            minimum/maximum colorbar values
+        cMap : str ['Spectral_r']
+            colormap
+        """
         kwargs.setdefault("cMin", 10)
         kwargs.setdefault("cMin", 500)
         kwargs.setdefault("cMap", "Spectral_r")
