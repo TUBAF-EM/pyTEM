@@ -138,42 +138,55 @@ class TEM:
 
         return ax
 
-    def showPositions(self):
+    def showPositions(self, every=5):
         """Show sounding positions."""
         fig, ax = plt.subplots()
         x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
                                    self.data["Longitude"].to_numpy())
         ax.plot(x, y, "x")
-        for i in range(0, len(x), 10):
-            ax.text(x[i], y[i], str(i), va="center", ha="center")
+        for i in range(0, len(x), every):
+            ax.text(x[i], y[i], str(self.data.index[i]), va="center", ha="center")
 
         ax.set_aspect(1.0)
         ax.grid(True)
         return ax
 
     def filter(self, tmin=0, tmax=1e9, nmin=0, nmax=9999, n=None):
-        """Filter data."""
+        """Filter data.
+
+        Parameters
+        ----------
+        tmin, tmax : float
+            Minimum and maximum time to keep (s)
+        nmin, nmax : int
+            Minimum and maximum sounding index to keep
+        n : int or array-like
+            Index or indices of soundings to drop
+        """
         doex = False
         if nmin > 0:
             self.data.drop(np.nonzero(self.data.index < nmin)[0], inplace=True)
             doex = True
+
         if nmax < self.DATA.shape[0]:
             self.data.drop(np.nonzero(self.data.index > nmax)[0], inplace=True)
             doex = True
+
         if n is not None:
             self.data.drop(n, inplace=True)
             doex = True
+
         if doex:
             self.extractData()
 
         if tmin > 0 or tmax < 100:
-            it = np.nonzero(np.bitwise_and(self.t <= 5e-4, self.t > 0))[0]
+            it = np.nonzero(np.bitwise_and(self.t <= tmax, self.t > tmin))[0]
             self.DATA = self.DATA[:, it]
             self.SD = self.SD[:, it]
             self.RHOA = self.RHOA[:, it]
             for tt in ["timeL", "timeH"]:
                 t = self.cfg[tt]
-                self.cfg[tt] = t[np.nonzero(np.bitwise_and(t <= 5e-4, t > 0))[0]]
+                self.cfg[tt] = t[np.nonzero(np.bitwise_and(t <= tmax, t > tmin))[0]]
 
             self.createForwardOperator()
             # self.calcRhoa()
