@@ -98,6 +98,16 @@ class TEM:
             logarithmic scale
         cmap/cMap : bool ["Spectral_r"]
             colormap name
+        nt : int[None]
+            number of time gate: triggers spatial plot
+        ax : mpl axis
+            axis object to draw into
+        label : str
+            label for colorbar
+        orientation : str
+            colorbar orientation
+        s : float
+            scatter plot (nt != None) size
         """
         kwargs.setdefault("cmap", kwargs.pop("cMap", "Spectral_r"))
         if "rmin" in kwargs: # backward compatibility
@@ -111,6 +121,8 @@ class TEM:
         else:
             norm = Normalize(vmin=cMin, vmax=cMax)
 
+        orientation = kwargs.pop("orientation", "horizontal")
+        label = kwargs.pop("label", r"$\rho_a$ [$\Omega$m]")
         ax = kwargs.pop("ax", plt.subplots()[1])
         if nt is not None:
             x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
@@ -129,8 +141,7 @@ class TEM:
             ax.set_xticklabels([str(int(self.data.index[i])) for i in xt], rotation=90)
             ax.set_ylabel("Time (s)")
 
-        ax.figure.colorbar(im, ax=ax, orientation="horizontal",
-                               label="log10(Rhoa) [Ohm m]")
+        ax.figure.colorbar(im, ax=ax, orientation=orientation, label=label)
 
         return ax
 
