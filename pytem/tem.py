@@ -1,9 +1,10 @@
 # %%
-import utm
 from pathlib import Path
 import numpy as np
 import pandas as pd
+import utm
 import matplotlib.pyplot as plt
+from matplotlib.colors import Normalize, LogNorm
 from .stem import readSettings
 from .temmodelling import TEMRhoModelling, TEMBlockModelling
 from .tools import rhoa, skinDepthTEM
@@ -16,9 +17,9 @@ class TEM:
 
     def __init__(self, filename:str=None, cfg=None, **kwargs):
         self.thk = kwargs.pop("thk", np.arange(2, 28, 2))
-        if cfg is None and filename.lower().endswith(".xyz"):
-            # check if corresponding settings (gex) file exists
-            if Path(filename[:-4]+".gex").exists():
+        # check if corresponding settings (gex) file exists
+        if cfg is None and filename.lower().endswith(".xyz") and \
+            Path(filename[:-4]+".gex").exists():
                 cfg = filename[:-4]+".gex"
 
         if cfg is not None:
@@ -55,6 +56,7 @@ class TEM:
         ax.plot(self.cfg["tL"]*1e6, self.cfg["vL"], label=label+" LM")
         ax.plot(self.cfg["tH"]*1e6, self.cfg["vH"], label=label+" HM")
         ax.set_xlabel("t [µs]")
+        ax.set_ylabel("normalized current")
         ax.legend()
         ax.grid()
         return ax
@@ -85,28 +87,62 @@ class TEM:
         self.RHOA[self.RHOA < rmin] = np.nan
         self.RHOA[self.RHOA > rmax] = np.nan
 
-    def showRhoa(self, rmin=10, rmax=500, **kwargs):
-        """Show apparent resistivity."""
-        kwargs.setdefault("cmap", "Spectral_r")
-        fig, ax = plt.subplots()
+    def showRhoa(self, cMin=10, cMax=1000, nt=None, s=10, **kwargs):
+        """Show apparent resistivity.
 
-        im = ax.imshow(np.log10(self.RHOA.T),
-                       vmin=np.log10(rmin), vmax=np.log10(rmax),
-                       **kwargs)
-        ax.set_xlabel("Station")
-        yt = np.arange(0, len(self.t), 3)
-        ax.set_yticks(yt)
-        ax.set_yticklabels([f"{self.t[int(i)]:.0e}".replace("e-0", "e-") for i in yt])
-        ax.set_ylabel("Time (s)")
-        fig.colorbar(im, ax=ax, orientation="horizontal", label="log10(Rhoa) [Ohm m]")
+        Parameters
+        ----------
+        cMin/cMax : float
+            minimum/maximum color scale
+        logScale : bool [True]
+            logarithmic scale
+        cmap/cMap : bool ["Spectral_r"]
+            colormap name
+        """
+        kwargs.setdefault("cmap", kwargs.pop("cMap", "Spectral_r"))
+        if "rmin" in kwargs: # backward compatibility
+            cMin = kwargs.pop("rmin")
+        if "rmax" in kwargs:
+            cMax = kwargs.pop("rmax")
+
+        logScale = kwargs.pop("logScale", True)
+        if logScale:
+            norm = LogNorm(vmin=cMin, vmax=cMax)
+        else:
+            norm = Normalize(vmin=cMin, vmax=cMax)
+
+        ax = kwargs.pop("ax", plt.subplots()[1])
+        if nt is not None:
+            x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
+                            self.data["Longitude"].to_numpy())
+            im = ax.scatter(x, y, c=self.RHOA[:, nt], s=s, norm=norm, **kwargs)
+        else:
+            im = ax.imshow(self.RHOA.T, norm=norm, **kwargs)
+            # im = ax.imshow(np.log10(self.RHOA.T),
+            #                vmin=np.log10(cMin), vmax=np.log10(cMax), **kwargs)
+            ax.set_xlabel("Station")
+            yt = np.arange(0, len(self.t), 3)
+            ax.set_yticks(yt)
+            ax.set_yticklabels([f"{self.t[int(i)]:.0e}".replace("e-0", "e-") for i in yt])
+            xt = np.arange(0, len(self.DATA), 1)
+            ax.set_xticks(xt)
+            ax.set_xticklabels([str(int(self.data.index[i])) for i in xt], rotation=90)
+            ax.set_ylabel("Time (s)")
+
+        ax.figure.colorbar(im, ax=ax, orientation="horizontal",
+                               label="log10(Rhoa) [Ohm m]")
+
         return ax
 
-    def showSounding(self, n=0, rhoa=False, ax=None, **kwargs):
+    def showSounding(self, n=0, index=None, rhoa=False, ax=None, **kwargs):
         """Show single sounding."""
         kwargs.setdefault("marker", "+")
-        kwargs.setdefault("ls", ":")
+        kwargs.setdefault("ls", "--")
         if ax is None:
             fig, ax = plt.subplots()
+
+        if index is not None:
+            n = np.nonzero(self.data.index == index)[0][0]
 
         data = self.DATA[n]
         err = self.SD[n]*np.abs(data)
@@ -117,10 +153,18 @@ class TEM:
         n0 = 0
         alln = np.hstack([np.nonzero(np.diff(self.t)<0)[0]+1, len(self.t)])
         kwargs.setdefault("color", None)
+        kw2 = kwargs.copy()
+        kw2["marker"] = "x"
+        kw2["ls"] = ":"
+        kw2.pop("label")
         for nn in alln:
             er = ax.errorbar(self.t[n0:nn], data[n0:nn], yerr=err[n0:nn], **kwargs)
+            kwargs.pop("label", None)
             if kwargs["color"] is None:
                 kwargs["color"] = er.lines[0].get_color()
+                kw2["color"] = kwargs["color"]
+
+            er = ax.errorbar(self.t[n0:nn], -data[n0:nn], yerr=err[n0:nn], **kw2)
             n0 = nn
 
         ax.set_xscale('log')
@@ -192,10 +236,13 @@ class TEM:
             # self.calcRhoa()
             # self.t = self.t[it]  # wrong
 
-    def invertSounding(self, n=0, minerr=0.015, thk=None, show=True, **kwargs):
+    def invertSounding(self, n=0, index=None, minerr=0.015, thk=None, show=True, **kwargs):
         """Invert data."""
         if thk is not None:
             self.createForwardOperator(thk=thk)
+
+        if index is not None:
+            n = np.nonzero(self.data.index == index)[0][0]
 
         inv = pg.Inversion(fop=self.f)
         # inv.dataTrans = "log" # not really necessary
@@ -267,6 +314,12 @@ class TEM:
             minimum/maximum colorbar values
         cMap : str ['Spectral_r']
             colormap
+        logScale : bool [True]
+            use logarithmic color scaling
+        zMin/zMax : float [automatic]
+            range for z (y axis) limits
+        zLog : bool
+            use logarithmic z (y axis) instead of linear
         """
         kwargs.setdefault("cMin", 10)
         kwargs.setdefault("cMin", 500)

@@ -120,9 +120,11 @@ class TEMRhoModelling(pg.frameworks.MeshModelling):
             mrec="b",                   # Receiver: dB/dt
             srcpts=3,                   # Approx. the finite dip. with 3 points.
             ftarg={"dlf": "key_81_2009"},  # Shorter, faster filters.
-            htarg={"dlf": "key_101_2009", "pts_per_dec": -1},
             bandpass={"func": bandpass}
             )
+        if kwargs.pop("ht", False):
+            self.kw["htarg"] = {"dlf": "key_101_2009", "pts_per_dec": -1}
+
 
     @property
     def t(self):
