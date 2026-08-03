@@ -48,13 +48,17 @@ class TEM:
         self.f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
         self.t = self.f.t
 
-    def showWaveform(self, label="", ax=None):
+    def showWaveform(self, shutoff=False, label="", ax=None):
         """Show current waveform."""
         if ax is None:
             fig, ax = plt.subplots()
 
         ax.plot(self.cfg["tL"]*1e6, self.cfg["vL"], label=label+" LM")
         ax.plot(self.cfg["tH"]*1e6, self.cfg["vH"], label=label+" HM")
+        if shutoff:
+            ax.set_xlim(0, 20)
+            ax.set_ylim(0, 1.01)
+
         ax.set_xlabel("t [µs]")
         ax.set_ylabel("normalized current")
         ax.legend()
