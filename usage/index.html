@@ -8,7 +8,7 @@
         
         
         <link rel="shortcut icon" href="../img/favicon.ico">
-        <title>Usage - TDIP</title>
+        <title>Usage - pyTEM</title>
         <link href="../css/bootstrap.min.css" rel="stylesheet">
         <link href="../css/fontawesome.min.css" rel="stylesheet">
         <link href="../css/brands.min.css" rel="stylesheet">
@@ -27,7 +27,7 @@
     <body>
         <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
             <div class="container">
-                <a class="navbar-brand" href="..">TDIP</a>
+                <a class="navbar-brand" href="..">pyTEM</a>
                 <!-- Expander button -->
                 <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
                     <span class="navbar-toggler-icon"></span>
@@ -90,6 +90,18 @@
               <ul class="nav flex-column">
               </ul>
             </li>
+            <li class="nav-item" data-bs-level="2"><a href="#data" class="nav-link">Data</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#inversion" class="nav-link">Inversion</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            <li class="nav-item" data-bs-level="2"><a href="#example-notebooks" class="nav-link">Example notebooks</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
               </ul>
             </li>
         </ul>
@@ -99,7 +111,7 @@
 
 <h1 id="usage">Usage</h1>
 <p>The package holds some functions for importing data for modelling IP effects, all based upon <a href="https://pygimli.org">pyGIMLi</a>.</p>
-<p>Main entry, however, is the class TDIP, to be imported by</p>
+<p>Main entry, however, is the class TEM, to be imported by</p>
 <pre><code class="language-python">from pyTEM import TEM
 </code></pre>
 <h2 id="loading-data">Loading data</h2>
@@ -125,10 +137,6 @@ You can also specify this by</p>
 <li>time gates</li>
 <li>transmitter waveforms</li>
 </ul>
-<p>You can display the positions of the individual soundings by</p>
-<pre><code class="language-python">ax = p.showPositions()
-</code></pre>
-<p>The resulting axes object can be used to underlay any map.</p>
 <h2 id="transmitter-waveform">Transmitter waveform</h2>
 <p>The transmitter waveform(s) can be shown by</p>
 <pre><code class="language-python">ax = p.showWaveform();
@@ -136,7 +144,63 @@ You can also specify this by</p>
 <p>Usually you mainly see the tx repetition rate and the on-switch in µs.
 To have a closer look at the off-switch ramp, you need to adjust the axis a bit, e.g.</p>
 <pre><code class="language-python">ax.set_xlim(0, 20)
-</code></pre></div>
+</code></pre>
+<h2 id="data">Data</h2>
+<h3 id="positions">Positions</h3>
+<p>You can display the positions of the individual soundings by</p>
+<pre><code class="language-python">ax = p.showPositions()
+</code></pre>
+<p>Any <code>show</code> commant returns a <a href="https://matplotlib.org">matplotlib</a> axes object that can be modified freely (limits, labels) or be used to underlay any map, e.g. <code>underlayBKGMap</code> from pyGIMLi.</p>
+<p>You may want to have a spatial look at some data, e.g. by plotting the apparent resistivity of a distinct time window (number <code>nt</code>)</p>
+<pre><code class="language-python">ax = tem.showRhoa(nt=10) # automatic
+ax = tem.showRhoa(nt=10, cMin=20, cMax=500, orientation=&quot;vertical&quot;) # colorbar
+</code></pre>
+<p>If you do not specify <code>nt</code>, it will plot all apparent resistivities next to each other (x axis) and the time gates on the y axis.</p>
+<pre><code class="language-python">ax = tem.showRhoa() # cMin/cMax etc.
+</code></pre>
+<p>This helps to get an overview on the general variability and noise level, but can only be interpreted geometrically if the data are acquired along a profile.</p>
+<h3 id="soundings">Soundings</h3>
+<p>You may have a look at single soundings as transient</p>
+<pre><code class="language-python">p.showSounding(n=11)
+</code></pre>
+<p>or apparent resistivity</p>
+<pre><code class="language-python">p.showSounding(n=11, rhoa=True)
+</code></pre>
+<p>To show a number of soundings, you can use</p>
+<pre><code class="language-python">p.showSoundings()  # all
+ax = p.showSoundings([0, 1, 5, 6]) # only a few
+ax.legend()
+</code></pre>
+<h3 id="filtering">Filtering</h3>
+<p>As a result, you will see when the transients run into noise. You can filter the time series with</p>
+<pre><code class="language-python">p.filter(tmax=1e-3)
+</code></pre>
+<p>You can also filter some soundings by their number</p>
+<pre><code class="language-python">tem.filter(n=[15, 25, 26])
+</code></pre>
+<p>or extract some of them (a profile or a part of a profile)</p>
+<pre><code class="language-python">tem.filter(nmin=10, nmax=22)
+</code></pre>
+<p>Note that this number is persistent after reading (like it is shown by <code>showPositions()</code>) and does not change upon removing soundings.</p>
+<h2 id="inversion">Inversion</h2>
+<p>A single sounding can be inverted by</p>
+<pre><code class="language-python">tem.invertSounding(20);
+</code></pre>
+<p>It will directly show the model and its response on top of the data in a two-column figure (two ax returned).</p>
+<p>Up to now, a multi-layer (Occam) inversion is done.
+You can specify the (fixed) thickness layer vector in the inversion (only for this call) call or directly upon the initialization (for all inversions) using <code>thk=</code>.</p>
+<p>You can also invert all data using</p>
+<pre><code class="language-python">tem.invertAll();
+</code></pre>
+<p>Several options of constraining them towards each other are currently implemented, by default the result of one sounding is taken as starting model for the next.
+The result is by default shown as 2D profile, but can also be shown by</p>
+<pre><code class="language-python">p.showResults()
+</code></pre>
+<p>Here, you can specify the colorbar limits (<code>cMin</code>/<code>cMax</code>) the colormap (<code>cMap</code>), log behaviour for the color (<code>logScale</code>) or the depth (<code>zLog</code>) and depth limits (<code>zMin</code>/<code>zMax</code>).</p>
+<h3 id="visualization-in-3d">Visualization in 3D</h3>
+<p>Export to VTK.</p>
+<h2 id="example-notebooks">Example notebooks</h2>
+<p>In the <a href="https://github.com/TUBAF-EM/pyTEM/tree/main/data">github data folder</a> you will find some example data with notebooks demonstrating how to work with it</p></div>
             </div>
         </div>
 
