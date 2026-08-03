@@ -292,6 +292,7 @@ class TEM:
             n0 = nn
 
         ax[1].grid()
+        return ax
 
     def invertAll(self, show=True, minerr=0.01):
         """Invert all data individually."""

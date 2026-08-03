@@ -1,4 +1,4 @@
-site_name: TDIP
+site_name: pyTEM
 nav:
   - Home: index.md
   - Introduction: introduction.md
