@@ -218,3 +218,7 @@ __marimo__/
 .streamlit/secrets.toml
 pyTEM.code-workspace
 uv.lock
+
+# Underlay map caches
+MAP*.png
+*NaN*.vector
