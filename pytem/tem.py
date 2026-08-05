@@ -149,7 +149,7 @@ class TEM:
 
         return ax
 
-    def showSounding(self, n=0, index=None, rhoa=False, ax=None, **kwargs):
+    def showSounding(self, index=None, n=0, rhoa=False, ax=None, **kwargs):
         """Show single sounding."""
         kwargs.setdefault("marker", "+")
         kwargs.setdefault("ls", "--")
@@ -171,7 +171,7 @@ class TEM:
         kw2 = kwargs.copy()
         kw2["marker"] = "x"
         kw2["ls"] = ":"
-        kw2.pop("label")
+        kw2.pop("label", None)
         for nn in alln:
             er = ax.errorbar(self.t[n0:nn], data[n0:nn], yerr=err[n0:nn], **kwargs)
             kwargs.pop("label", None)
@@ -193,22 +193,35 @@ class TEM:
             nn = range(self.DATA.shape[0])
         ax = None
         for i in nn:
-            ax = self.showSounding(i, ax=ax, label=str(i), **kwargs)
+            ax = self.showSounding(n=i, ax=ax, label=str(self.data.index[i]), **kwargs)
 
         return ax
 
-    def showPositions(self, every=5):
+    def showPositions(self, every=5, **kwargs):
         """Show sounding positions."""
         fig, ax = plt.subplots()
         x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
                                    self.data["Longitude"].to_numpy())
-        ax.plot(x, y, "x")
+        ax.plot(x, y, "x", **kwargs)
         for i in range(0, len(x), every):
             ax.text(x[i], y[i], str(self.data.index[i]), va="center", ha="center")
 
         ax.set_aspect(1.0)
         ax.grid(True)
         return ax
+
+
+    def detectLines(self):
+        pass  # possible line detections
+
+    def extractLine(self, line):
+        """Extract a subset according to line number."""
+        new = TEM(thk=self.thk, cfg=self.cfg)
+        new.data = self.data[self.data.Line == line]
+        new.data.set_index("Station", inplace=True)
+        new.createForwardOperator()
+        new.extractData()
+        return new
 
     def filter(self, tmin=0, tmax=1e9, nmin=0, nmax=9999, n=None):
         """Filter data.
@@ -227,12 +240,16 @@ class TEM:
             self.data.drop(np.nonzero(self.data.index < nmin)[0], inplace=True)
             doex = True
 
-        if nmax < self.DATA.shape[0]:
+        if nmax <= max(self.data.index): # self.DATA.shape[0]:
             self.data.drop(np.nonzero(self.data.index > nmax)[0], inplace=True)
             doex = True
 
         if n is not None:
-            self.data.drop(n, inplace=True)
+            self.data.drop(index=n, inplace=True)
+            # for ni in np.atleast_1d(n):
+            #     nn = np.nonzero(self.data.index == ni)[0]
+            #     if nn:
+            #         self.data.drop(nn[0], inplace=True)
             doex = True
 
         if doex:
