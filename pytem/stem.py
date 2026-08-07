@@ -1,8 +1,6 @@
 from pathlib import Path
 import numpy as np
-import matplotlib.pyplot as plt
-import empymod
-import pygimli as pg
+
 
 def readGEXFile(fname="sTEM.gex"):
     """Read GEX file (a rather general function)."""
