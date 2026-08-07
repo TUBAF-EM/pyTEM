@@ -1,3 +1,4 @@
+from pathlib import Path
 import numpy as np
 import matplotlib.pyplot as plt
 import empymod
@@ -5,7 +6,7 @@ import pygimli as pg
 
 def readGEXFile(fname="sTEM.gex"):
     """Read GEX file (a rather general function)."""
-    with open(fname) as fid:
+    with Path(fname).open() as fid:
         lines = fid.readlines()
         for i, line in enumerate(lines):
             lines[i] = line.replace("=", "= ")
@@ -55,16 +56,22 @@ def readSettings(filename="sTEM.gex"):
     cfg["txarea"] = out.pop("TxLoopArea", 0)
     txp = collectNumData(out, "TxLoopPoint")
     cfg["tx"], cfg["ty"] = txp[:, 0], txp[:, 1]
-    bla = collectNumData(out, "WaveformLMPoint", num=2)
-    cfg["tL"], cfg["vL"] = bla[:, 0], bla[:, 1]
-    bla = collectNumData(out, "WaveformHMPoint", num=2)
-    cfg["tH"], cfg["vH"] = bla[:, 0], bla[:, 1]
-    cfg["timeL"] = collectNumData(out, "GateTimeLM")[:, 0]
-    cfg["timeH"] = collectNumData(out, "GateTimeHM")[:, 0]
+    if "WaveformPoint" in out: # single mode
+        bla = collectNumData(out, "WaveformPoint", num=2)
+        cfg["t"], cfg["v"] = bla[:, 0], bla[:, 1]
+        cfg["time"] = collectNumData(out, "GateTime")[:, 0]
+    elif "WaveformLMPoint" in out: # dual mode
+        bla = collectNumData(out, "WaveformLMPoint", num=2)
+        cfg["tL"], cfg["vL"] = bla[:, 0], bla[:, 1]
+        bla = collectNumData(out, "WaveformHMPoint", num=2)
+        cfg["tH"], cfg["vH"] = bla[:, 0], bla[:, 1]
+        cfg["timeL"] = collectNumData(out, "GateTimeLM")[:, 0]
+        cfg["timeH"] = collectNumData(out, "GateTimeHM")[:, 0]
     return cfg
 
+
 def readSettings1(filename="sTEM.gex"):
-    with open(filename) as fid:
+    with Path(filename).open() as fid:
         lines = fid.readlines()
 
     cfg = {}
@@ -86,118 +93,6 @@ def bandpass(inp, p_dict):
     p_dict["EM"] *= h[:, None]
 
 
-class sTEMBlockModelling(pg.frameworks.Block1DModelling):
-
-    def __init__(self, **kwargs):
-        cfg = kwargs.pop("cfg", {})
-        super().__init__(**kwargs)
-        if isinstance(cfg, str):
-            cfg = readSettings(cfg)
-
-        self.signalL = {'nodes': cfg["tL"], 'amplitudes': cfg["vL"], 'signal': 1}
-        self.signalH = {'nodes': cfg["tH"], 'amplitudes': cfg["vH"], 'signal': 1}
-        self.timeL = cfg["timeL"]
-        self.timeH = cfg["timeH"]
-
-        self.kw = dict(
-            src=[[cfg["tx"][-1], *cfg["tx"]], # x1
-            [*cfg["tx"], cfg["tx"][0]], # x2
-            [cfg["ty"][-1], *cfg["ty"]], # y1
-            [*cfg["ty"], cfg["ty"][0]], # y2
-            0, 0],
-            strength=1/cfg["txarea"],
-            verb=0,
-            rec = np.concatenate([cfg["rxpos"], [0, 90]]),       # Receiver at the origin, vertical.
-            mrec="b",                   # Receiver: dB/dt
-            srcpts=3,                   # Approx. the finite dip. with 3 points.
-            ftarg={"dlf": "key_81_2009"},  # Shorter, faster filters.
-            htarg={"dlf": "key_101_2009", "pts_per_dec": -1},
-            bandpass={"func": bandpass}
-            )
-
-    @property
-    def t(self):
-        return np.concatenate([self.timeL, self.timeH])
-
-    def response(self, model):
-        """Return model response."""
-        thk = model[:self.nLayers-1]
-        res = model[self.nLayers-1:]
-        outL = empymod.model.bipole(
-            depth=np.concatenate([[0], np.cumsum(np.atleast_1d(thk))]), # Depth-model.
-            res=np.concatenate([[2e14], np.atleast_1d(res)]),      # Resistivity model.
-            signal=self.signalL,
-            freqtime=self.timeL,      # Wanted times.
-            **self.kw)
-        outH = empymod.model.bipole(
-            depth=np.concatenate([[0], np.cumsum(np.atleast_1d(thk))]), # Depth-model.
-            res=np.concatenate([[2e14], np.atleast_1d(res)]),      # Resistivity model.
-            signal=self.signalH,
-            freqtime=self.timeH,      # Wanted times.
-            **self.kw)
-        return np.concatenate([outL.sum(axis=1), outH.sum(axis=1)])
-
-
-class sTEMRhoModelling(pg.frameworks.MeshModelling):
-
-    def __init__(self, thk, **kwargs):
-        self.thk = thk
-        cfg = kwargs.pop("cfg", "sTEM.gex")
-        self.mesh_ = pg.meshtools.createMesh1D(len(thk)+1)
-        super().__init__(mesh=self.mesh_)
-        if isinstance(cfg, str):
-            cfg = readSettings(cfg)
-        # t = cfg["tL"]
-        # v = cfg["vL"]
-        # self.signalL = {"nodes": t[t >= -t[-1]*100], "amplitudes": v[t >= -t[-1]*100]}
-        # t = cfg["tH"]
-        # v = cfg["vH"]
-        # self.signalH = {"nodes": t[t >= -t[-1]*100], "amplitudes": v[t >= -t[-1]*100]}
-        self.signalL = {'nodes': cfg["tL"], 'amplitudes': cfg["vL"], 'signal': 1}
-        self.signalH = {'nodes': cfg["tH"], 'amplitudes': cfg["vH"], 'signal': 1}
-        self.timeL = cfg["timeL"]
-        self.timeH = cfg["timeH"]
-
-        self.kw = dict(
-            src=[[cfg["tx"][-1], *cfg["tx"]], # x1
-            [*cfg["tx"], cfg["tx"][0]], # x2
-            [cfg["ty"][-1], *cfg["ty"]], # y1
-            [*cfg["ty"], cfg["ty"][0]], # y2
-            0, 0],
-            strength=1/cfg["txarea"],
-            verb=0,
-            depth = np.concatenate([[0], np.cumsum(np.atleast_1d(thk))]),
-            rec = np.concatenate([cfg["rxpos"], [0, 90]]), # Receiver at the origin, vertical.
-            mrec="b",                   # Receiver: dB/dt
-            srcpts=3,                   # Approx. the finite dip. with 3 points.
-            ftarg={"dlf": "key_81_2009"},  # Shorter, faster filters.
-            htarg={"dlf": "key_101_2009", "pts_per_dec": -1},
-            bandpass={"func": bandpass}
-            )
-
-    @property
-    def t(self):
-        return np.concatenate([self.timeL, self.timeH])
-
-    def response(self, model):
-        """Return model response."""
-        return np.concatenate([
-            empymod.model.bipole(
-                res=np.concatenate([[2e14], model]),
-                signal=self.signalL,
-                freqtime=self.timeL,      # Wanted times.
-                **self.kw).sum(axis=1),
-            empymod.model.bipole(
-                res=np.concatenate([[2e14], model]),
-                signal=self.signalH,
-                freqtime=self.timeH,      # Wanted times.
-                **self.kw).sum(axis=1)])
-
-    def createStartVector(self, data):
-        return pg.Vector(len(self.thk)+1, 250.)
-
 # %%
 if __name__ == "__main__":
-    f = sTEMRhoModelling(thk=np.arange(2, 28, 2), cfg="sTEM.gex")
-    rho = pg.Vector(len(f.thk)+1, 100.)
-    print(f(rho))
+    pass
