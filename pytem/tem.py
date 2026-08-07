@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 from .stem import readSettings
 from .temmodelling import TEMRhoModellingDualMode, TEMBlockModellingDualMode
-from .tools import rhoa, skinDepthTEM
+from .tools import rhoa, skinDepthTEM, readXYZfile
 import pygimli as pg
 
 
@@ -77,7 +77,8 @@ class TEM:
 
     def readData(self, filename):
         """Read data file (xyz)."""
-        self.data = pd.read_csv(filename, skiprows=2, sep=r"\s+")
+        # self.data = pd.read_csv(filename, skiprows=2, sep=r"\s+")
+        self.data, self.header = readXYZfile(filename)
         self.extractData()
 
     def extractData(self):
