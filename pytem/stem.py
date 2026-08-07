@@ -1,3 +1,4 @@
+"""Tools for reading and processing sTEM data."""
 from pathlib import Path
 import numpy as np
 
@@ -52,8 +53,15 @@ def readSettings(filename="sTEM.gex"):
     cfg["rxpos"] = out["RxCoilPosition1"]
     cfg["txpos"] = out["TxCoilPosition1"]
     cfg["txarea"] = out.pop("TxLoopArea", 0)
-    txp = collectNumData(out, "TxLoopPoint")
-    cfg["tx"], cfg["ty"] = txp[:, 0], txp[:, 1]
+    if "TxLoopPoint1" in out:
+        txp = collectNumData(out, "TxLoopPoint")
+        cfg["tx"], cfg["ty"] = txp[:, 0], txp[:, 1]
+    else:
+        dia = out["TxLoopDiameter"]
+        nL = 8
+        cfg["tx"] = np.sin(np.arange(nL) * 2 * np.pi / nL) * dia / 2
+        cfg["ty"] = np.cos(np.arange(nL) * 2 * np.pi / nL) * dia / 2
+
     if "WaveformPoint" in out: # single mode
         bla = collectNumData(out, "WaveformPoint", num=2)
         cfg["t"], cfg["v"] = bla[:, 0], bla[:, 1]
