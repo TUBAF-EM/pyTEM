@@ -1,4 +1,3 @@
-# %%
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -6,12 +5,11 @@ import utm
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 from .stem import readSettings
-from .temmodelling import TEMRhoModelling, TEMBlockModelling
+from .temmodelling import TEMRhoModellingDualMode, TEMBlockModellingDualMode
 from .tools import rhoa, skinDepthTEM
 import pygimli as pg
 
 
-# %%
 class TEM:
     """Class for processing TEM data."""
 
@@ -40,12 +38,24 @@ class TEM:
         self.cfg = readSettings(cfg)
         self.createForwardOperator()
 
+    @property
+    def layers(self):
+        """Get layer thicknesses."""
+        return self.thk
+
+    @layers.setter
+    def layers(self, layers):
+        """Set layer thicknesses."""
+        self.thk = layers
+        self.createForwardOperator()
+
     def createForwardOperator(self, thk=None):
         """Create a forward operator from the given cfg."""
         if thk is not None:
             self.thk = thk
 
-        self.f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
+        # check if single or dual mode
+        self.f = TEMRhoModellingDualMode(thk=self.thk, cfg=self.cfg)
         self.t = self.f.t
 
     def showWaveform(self, shutoff=False, label="", ax=None):
@@ -182,6 +192,9 @@ class TEM:
             er = ax.errorbar(self.t[n0:nn], -data[n0:nn], yerr=err[n0:nn], **kw2)
             n0 = nn
 
+        ax.set_xlabel("Time (s)")
+        ylabel = r"$\rho_a$ [$\Omega$m]" if rhoa else r"$dB/dt$ [V/(m²s)]"
+        ax.set_ylabel(ylabel)
         ax.set_xscale('log')
         ax.set_yscale('log')
         ax.grid(True)
@@ -192,8 +205,12 @@ class TEM:
         if nn is None:
             nn = range(self.DATA.shape[0])
         ax = None
+        leg = kwargs.pop("legend", False)
         for i in nn:
             ax = self.showSounding(n=i, ax=ax, label=str(self.data.index[i]), **kwargs)
+
+        if leg:
+            ax.legend()
 
         return ax
 
