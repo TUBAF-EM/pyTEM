@@ -1,4 +1,7 @@
+"""Tools for TEM data import and processing."""
 import numpy as np
+import pandas as pd
+from pathlib import Path
 
 mu0 = 4e-7 * np.pi
 
@@ -21,3 +24,34 @@ def bandpass(inp, p_dict):
     h *= (1 + 1j*p_dict["freq"]/3e5)**-1
     p_dict["EM"] *= h[:, None]
 
+def readXYZfile(filename):
+    """Read XYZ (workbench export) file.
+
+    Parameters
+    ----------
+    filename : str
+        Path to the XYZ file.
+
+    Returns
+    -------
+    data : pandas.DataFrame
+        DataFrame containing the XYZ data.
+    header : dict
+        Dictionary containing the header information.
+    """
+    with Path(filename).open() as fid:
+        name = None
+        header = {}
+        lines = fid.readlines()
+        for i, line in enumerate(lines):
+            if line[0] != "/":
+                break
+            if name is None:
+                name = line[1:].rstrip("\n")
+            else:
+                header[name] = line[1:]
+                name = None
+
+    data = pd.read_csv(filename, delimiter=r"\s+", skiprows=i,
+                       names=lines[i-1][1:].split())
+    return data, header
