@@ -15,6 +15,7 @@ class TEM:
 
     def __init__(self, filename:str=None, cfg=None, **kwargs):
         self.thk = kwargs.pop("thk", np.arange(2, 28, 2))
+        self.cfg = {}
         # check if corresponding settings (gex) file exists
         if cfg is None and filename.lower().endswith(".xyz") and \
             Path(filename[:-4]+".gex").exists():
@@ -25,6 +26,7 @@ class TEM:
                 self.readCFG(cfg)
             else:
                 self.cfg = cfg
+
         if filename is not None:
             self.readData(filename)
 
@@ -79,18 +81,27 @@ class TEM:
         """Read data file (xyz)."""
         # self.data = pd.read_csv(filename, skiprows=2, sep=r"\s+")
         self.data, self.header = readXYZfile(filename)
+        if "GATE TIMES (s)" in self.header:
+            self.cfg["time"] = np.fromstring(self.header["GATE TIMES (s)"], sep=" ")
+            self.t = self.cfg["time"]
         self.extractData()
 
     def extractData(self):
         """Extract data from dataframe into arrays."""
-        nL = len(self.cfg["timeL"])
-        CH1 = np.column_stack([self.data[f"dbdt{i:03d}_Ch1"] for i in range(1, nL+1)])
-        SD1 = np.column_stack([self.data[f"stdF{i:03d}_Ch1"] for i in range(1, nL+1)])
-        nH = len(self.cfg["timeH"])
-        CH2 = np.column_stack([self.data[f"dbdt{i:03d}_Ch2"] for i in range(1, nH+1)])
-        SD2 = np.column_stack([self.data[f"stdF{i:03d}_Ch2"] for i in range(1, nH+1)])
-        self.DATA = np.hstack([CH1, CH2])
-        self.SD = np.hstack([SD1, SD2])
+        if "time" in self.cfg:
+            n = len(self.cfg["time"])
+            self.DATA = np.column_stack([self.data[f"DATA_{i:d}"] for i in range(1, n+1)])
+            self.SD = np.column_stack([self.data[f"DATASTD_{i:d}"] for i in range(1, n+1)])
+        else:
+            nL = len(self.cfg["timeL"])
+            CH1 = np.column_stack([self.data[f"dbdt{i:03d}_Ch1"] for i in range(1, nL+1)])
+            SD1 = np.column_stack([self.data[f"stdF{i:03d}_Ch1"] for i in range(1, nL+1)])
+            nH = len(self.cfg["timeH"])
+            CH2 = np.column_stack([self.data[f"dbdt{i:03d}_Ch2"] for i in range(1, nH+1)])
+            SD2 = np.column_stack([self.data[f"stdF{i:03d}_Ch2"] for i in range(1, nH+1)])
+            self.DATA = np.hstack([CH1, CH2])
+            self.SD = np.hstack([SD1, SD2])
+
         self.calcRhoa()
 
     def calcRhoa(self, rmin=1, rmax=10000):
@@ -218,8 +229,12 @@ class TEM:
     def showPositions(self, every=5, **kwargs):
         """Show sounding positions."""
         fig, ax = plt.subplots()
-        x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
-                                   self.data["Longitude"].to_numpy())
+        if "X" in self.data and "Y" in self.data:
+            x, y = self.data["X"].to_numpy(), self.data["Y"].to_numpy()
+        else:
+            x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
+                                    self.data["Longitude"].to_numpy())
+
         ax.plot(x, y, "x", **kwargs)
         for i in range(0, len(x), every):
             ax.text(x[i], y[i], str(self.data.index[i]), va="center", ha="center")
@@ -235,8 +250,16 @@ class TEM:
     def extractLine(self, line):
         """Extract a subset according to line number."""
         new = TEM(thk=self.thk, cfg=self.cfg)
-        new.data = self.data[self.data.Line == line]
-        new.data.set_index("Station", inplace=True)
+        if "LINE_NO" in self.data:
+            new.data = self.data[self.data.LINE_NO == line]
+        elif "Line" in self.data:
+            new.data = self.data[self.data.Line == line]
+        else:
+            raise ValueError("No line number column found in data.")
+
+        if "Station" in new.data:
+            new.data.set_index("Station", inplace=True)
+
         new.createForwardOperator()
         new.extractData()
         return new
