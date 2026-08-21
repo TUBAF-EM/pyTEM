@@ -52,6 +52,8 @@ def readXYZfile(filename):
                 header[name] = line[1:]
                 name = None
 
+    nams = lines[i-1][1:].replace("[", "").replace("]", "").split()
     data = pd.read_csv(filename, delimiter=r"\s+", skiprows=i,
-                       names=lines[i-1][1:].split())
+                       names=nams)
+                    #    names=lines[i-1][1:].replace("[", "").split())
     return data, header

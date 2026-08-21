@@ -1,3 +1,4 @@
+"""TEM data manipulation class."""
 from pathlib import Path
 import numpy as np
 import pandas as pd
@@ -5,8 +6,8 @@ import utm
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 from .stem import readSettings
-from .temmodelling import (TEMRhoModellingDualMode, TEMRhoModelling,
-                           TEMBlockModellingDualMode)
+from .temmodelling import TEMRhoModellingDualMode
+from .temmodelling import TEMRhoModelling
 from .tools import rhoa, skinDepthTEM, readXYZfile
 import pygimli as pg
 
@@ -58,11 +59,17 @@ class TEM:
             self.thk = thk
 
         # check if single or dual mode
-        if 'tL' in self.cfg and 'tH' in self.cfg:
+        print(self.cfg.keys())
+        if 'timeL' in self.cfg and 'timeH' in self.cfg:
+            print("set dual mode")
             self.f = TEMRhoModellingDualMode(thk=self.thk, cfg=self.cfg)
-        else:
+        elif 'time' in self.cfg:
+            print("set single mode")
             self.f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
+        else:
+            raise BaseException("could not get time")
 
+        print("ready")
         self.t = self.f.t
 
     def showWaveform(self, shutoff=False, label="", ax=None):
@@ -70,8 +77,12 @@ class TEM:
         if ax is None:
             fig, ax = plt.subplots()
 
-        ax.plot(self.cfg["tL"]*1e6, self.cfg["vL"], label=label+" LM")
-        ax.plot(self.cfg["tH"]*1e6, self.cfg["vH"], label=label+" HM")
+        if 'tL' in self.cfg and 'tH' in self.cfg:
+            ax.plot(self.cfg["tL"]*1e6, self.cfg["vL"], label=label+" LM")
+        if 'tH' in self.cfg:
+            ax.plot(self.cfg["tH"]*1e6, self.cfg["vH"], label=label+" HM")
+        if 't' in self.cfg:
+            ax.plot(self.cfg["t"]*1e6, self.cfg["vH"], label=label)
         if shutoff:
             ax.set_xlim(0, 20)
             ax.set_ylim(0, 1.01)
@@ -95,8 +106,15 @@ class TEM:
         """Extract data from dataframe into arrays."""
         if "time" in self.cfg:
             n = len(self.cfg["time"])
-            self.DATA = np.column_stack([self.data[f"DATA_{i:d}"] for i in range(1, n+1)])
-            self.SD = np.column_stack([self.data[f"DATASTD_{i:d}"] for i in range(1, n+1)])
+            if "dbdt_z0" in self.data:
+                print("reading dbdt_zi")
+                self.DATA = np.column_stack([self.data[f"dbdt_z{i:d}"] for i in range(n)])
+                # self.SD = np.column_stack([self.data[f"DATASTD_{i:d}"] for i in range(n)])
+            elif "DATA_1" in self.data:
+                self.DATA = np.column_stack([self.data[f"DATA_{i:d}"] for i in range(1, n+1)])
+                self.SD = np.column_stack([self.data[f"DATASTD_{i:d}"] for i in range(1, n+1)])
+            else:
+                print("could not get data, keys", self.data.keys())
         else:
             nL = len(self.cfg["timeL"])
             CH1 = np.column_stack([self.data[f"dbdt{i:03d}_Ch1"] for i in range(1, nL+1)])
@@ -108,6 +126,13 @@ class TEM:
             self.SD = np.hstack([SD1, SD2])
 
         self.calcRhoa()
+        if "X" in self.data and "Y" in self.data:
+            self.x, self.y = self.data["X"].to_numpy(), self.data["Y"].to_numpy()
+        elif "Latitude" in self.data and "Longitude in self.data":
+            self.x, self.y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
+                                    self.data["Longitude"].to_numpy())
+        else:
+            raise ImportError("Could not get positions")
 
     def calcRhoa(self, rmin=1, rmax=10000):
         """Compute apparent resistivity."""
@@ -140,6 +165,9 @@ class TEM:
         s : float
             scatter plot (nt != None) size
         """
+        if not hasattr(self, "RHOA") or self.RHOA.shape != self.DATA.shape:
+            self.calcRhoa()
+
         kwargs.setdefault("cmap", kwargs.pop("cMap", "Spectral_r"))
         if "rmin" in kwargs: # backward compatibility
             cMin = kwargs.pop("rmin")
@@ -156,13 +184,10 @@ class TEM:
         label = kwargs.pop("label", r"$\rho_a$ [$\Omega$m]")
         ax = kwargs.pop("ax", plt.subplots()[1])
         if nt is not None:
-            x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
-                            self.data["Longitude"].to_numpy())
-            im = ax.scatter(x, y, c=self.RHOA[:, nt], s=s, norm=norm, **kwargs)
+            im = ax.scatter(self.x, self.y, c=self.RHOA[:, nt],
+                            s=s, norm=norm, **kwargs)
         else:
             im = ax.imshow(self.RHOA.T, norm=norm, **kwargs)
-            # im = ax.imshow(np.log10(self.RHOA.T),
-            #                vmin=np.log10(cMin), vmax=np.log10(cMax), **kwargs)
             ax.set_xlabel("Station")
             yt = np.arange(0, len(self.t), 3)
             ax.set_yticks(yt)
@@ -234,15 +259,10 @@ class TEM:
     def showPositions(self, every=5, **kwargs):
         """Show sounding positions."""
         fig, ax = plt.subplots()
-        if "X" in self.data and "Y" in self.data:
-            x, y = self.data["X"].to_numpy(), self.data["Y"].to_numpy()
-        else:
-            x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
-                                    self.data["Longitude"].to_numpy())
 
-        ax.plot(x, y, "x", **kwargs)
-        for i in range(0, len(x), every):
-            ax.text(x[i], y[i], str(self.data.index[i]), va="center", ha="center")
+        ax.plot(self.x, self.y, "x", **kwargs)
+        for i in range(0, len(self.x), every):
+            ax.text(self.x[i], self.y[i], str(self.data.index[i]), va="center", ha="center")
 
         ax.set_aspect(1.0)
         ax.grid(True)
@@ -404,14 +424,12 @@ class TEM:
         kwargs.setdefault("cMin", 500)
         kwargs.setdefault("cMap", "Spectral_r")
         if usepos is not None:
-            x, y, *_ = utm.from_latlon(self.data["Latitude"].to_numpy(),
-                                    self.data["Longitude"].to_numpy())
             if usepos == "x": # Easting
-                kwargs["x"] = x
+                kwargs["x"] = self.x
             elif usepos == "y": # Northing
-                kwargs["x"] = y
+                kwargs["x"] = self.y
             else: # tape measure
-                dx = np.sqrt(np.diff(x)**2 +np.diff(y)**2)
+                dx = np.sqrt(np.diff(self.x)**2 +np.diff(self.y)**2)
                 kwargs["x"] = np.hstack([0, np.cumsum(dx)])
         if "Elevation" in self.data:
             kwargs.setdefault("topo", self.data["Elevation"].to_numpy())

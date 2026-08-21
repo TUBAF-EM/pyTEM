@@ -33,7 +33,6 @@ class TEMBlockModelling(pg.frameworks.Block1DModelling):
 
         self.time = cfg["time"]
         # TODO: compute txarea from points if not present
-
         self.kw = dict(
             src=[[cfg["tx"][-1], *cfg["tx"]], # x1
                  [*cfg["tx"], cfg["tx"][0]], # x2
@@ -142,6 +141,9 @@ class TEMRhoModelling(pg.frameworks.MeshModelling):
         else:
             self.signal = -1
 
+        if "time" in cfg:
+            self.time = cfg["time"]
+
         self.kw = dict(
             src=[[cfg["tx"][-1], *cfg["tx"]], # x1
                  [*cfg["tx"], cfg["tx"][0]], # x2
@@ -197,7 +199,7 @@ class TEMRhoModellingDualMode(TEMRhoModelling):
         super().__init__(thk, **kwargs)
         if isinstance(cfg, str):
             cfg = readSettings(cfg)
-        print(cfg.keys())
+
         self.signalL = {'nodes': cfg["tL"], 'amplitudes': cfg["vL"], 'signal': 1}
         self.signalH = {'nodes': cfg["tH"], 'amplitudes': cfg["vH"], 'signal': 1}
         self.timeL = cfg["timeL"]
