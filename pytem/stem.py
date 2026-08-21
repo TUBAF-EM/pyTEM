@@ -52,12 +52,16 @@ def readSettings(filename="sTEM.gex", ramptime=None):
     cfg = {}
     cfg["rxpos"] = out["RxCoilPosition1"]
     cfg["txpos"] = out["TxCoilPosition1"]
-    cfg["txarea"] = out.pop("TxLoopArea", 0)
     if "TxLoopPoint1" in out:
         txp = collectNumData(out, "TxLoopPoint")
         cfg["tx"], cfg["ty"] = txp[:, 0], txp[:, 1]
+        xx = np.hstack([cfg["tx"], cfg["tx"][0]])
+        yy = np.hstack([cfg["ty"], cfg["ty"][0]])
+        cfg.setdefault("txarea", np.abs(sum(xx[:-1]*yy[1:]) -
+                                        sum(xx[1:]*yy[:-1]))/2)
     else:
         dia = out["TxLoopDiameter"]
+        cfg.setdefault("txarea", dia**2*np.pi/4)
         nL = 8
         cfg["tx"] = np.sin(np.arange(nL) * 2 * np.pi / nL) * dia / 2
         cfg["ty"] = np.cos(np.arange(nL) * 2 * np.pi / nL) * dia / 2
