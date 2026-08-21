@@ -5,7 +5,8 @@ import utm
 import matplotlib.pyplot as plt
 from matplotlib.colors import Normalize, LogNorm
 from .stem import readSettings
-from .temmodelling import TEMRhoModellingDualMode, TEMBlockModellingDualMode
+from .temmodelling import (TEMRhoModellingDualMode, TEMRhoModelling,
+                           TEMBlockModellingDualMode)
 from .tools import rhoa, skinDepthTEM, readXYZfile
 import pygimli as pg
 
@@ -57,7 +58,11 @@ class TEM:
             self.thk = thk
 
         # check if single or dual mode
-        self.f = TEMRhoModellingDualMode(thk=self.thk, cfg=self.cfg)
+        if 'tL' in self.cfg and 'tH' in self.cfg:
+            self.f = TEMRhoModellingDualMode(thk=self.thk, cfg=self.cfg)
+        else:
+            self.f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
+
         self.t = self.f.t
 
     def showWaveform(self, shutoff=False, label="", ax=None):
@@ -311,7 +316,7 @@ class TEM:
 
     def invertSounding(self, n=0, index=None, minerr=0.015, thk=None, show=True, **kwargs):
         """Invert data."""
-        if thk is not None:
+        if thk is not None or not hasattr(self, "f"):
             self.createForwardOperator(thk=thk)
 
         if index is not None:

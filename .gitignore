@@ -222,3 +222,4 @@ uv.lock
 # Underlay map caches
 MAP*.png
 *NaN*.vector
+.vscode/settings.json

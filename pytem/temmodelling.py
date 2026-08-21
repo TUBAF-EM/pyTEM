@@ -62,8 +62,8 @@ class TEMBlockModelling(pg.frameworks.Block1DModelling):
         return bipole(
             depth=np.concatenate([[0], np.cumsum(np.atleast_1d(thk))]), # Depth-model.
             res=np.concatenate([[2e14], np.atleast_1d(res)]),      # Resistivity model.
-            signal=self.signalL,
-            freqtime=self.timeL,      # Wanted times.
+            signal=self.signal,
+            freqtime=self.time,      # Wanted times.
             **self.kw).sum(axis=1)
 
 
@@ -163,7 +163,7 @@ class TEMRhoModelling(pg.frameworks.MeshModelling):
     @property
     def t(self):
         """Return time vector."""
-        return np.concatenate([self.timeL, self.timeH])
+        return self.time
 
     def response(self, model):
         """Return model response."""
@@ -197,7 +197,7 @@ class TEMRhoModellingDualMode(TEMRhoModelling):
         super().__init__(thk, **kwargs)
         if isinstance(cfg, str):
             cfg = readSettings(cfg)
-
+        print(cfg.keys())
         self.signalL = {'nodes': cfg["tL"], 'amplitudes': cfg["vL"], 'signal': 1}
         self.signalH = {'nodes': cfg["tH"], 'amplitudes': cfg["vH"], 'signal': 1}
         self.timeL = cfg["timeL"]
