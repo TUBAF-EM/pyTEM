@@ -46,7 +46,7 @@ def collectNumData(dic, name, start=1, stop=100, num=0):
     return np.array(col)
 
 
-def readSettings(filename="sTEM.gex"):
+def readSettings(filename="sTEM.gex", ramptime=None):
     """Read settings."""
     out = readGEXFile(filename)
     cfg = {}
@@ -62,19 +62,28 @@ def readSettings(filename="sTEM.gex"):
         cfg["tx"] = np.sin(np.arange(nL) * 2 * np.pi / nL) * dia / 2
         cfg["ty"] = np.cos(np.arange(nL) * 2 * np.pi / nL) * dia / 2
 
-    if "WaveformPoint" in out: # single mode
-        bla = collectNumData(out, "WaveformPoint", num=2)
-        cfg["t"], cfg["v"] = bla[:, 0], bla[:, 1]
-        cfg["time"] = collectNumData(out, "GateTime")[:, 0]
-    elif "WaveformLMPoint" in out: # dual mode
+    if "WaveformLMPoint01" in out: # dual mode
         bla = collectNumData(out, "WaveformLMPoint", num=2)
         cfg["tL"], cfg["vL"] = bla[:, 0], bla[:, 1]
         bla = collectNumData(out, "WaveformHMPoint", num=2)
         cfg["tH"], cfg["vH"] = bla[:, 0], bla[:, 1]
         cfg["timeL"] = collectNumData(out, "GateTimeLM")[:, 0]
         cfg["timeH"] = collectNumData(out, "GateTimeHM")[:, 0]
-    return cfg
+    else:
+        if "WaveformPoint" in out: # single mode
+            bla = collectNumData(out, "WaveformPoint", num=2)
+            cfg["t"], cfg["v"] = bla[:, 0], bla[:, 1]
+        else:
+            if ramptime is None:
+                print("No waveform found. Guessing.")
+                ramptime = 5e-3
 
+            cfg["t"] = np.array([-1e-4, 0, ramptime])
+            cfg["v"] = np.array([1.0, 1.0, 0.0])
+
+        cfg["time"] = collectNumData(out, "GateTime")[:, 0]
+
+    return cfg
 
 def readSettings1(filename="sTEM.gex"):
     with Path(filename).open() as fid:
