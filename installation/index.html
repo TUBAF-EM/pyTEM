@@ -98,14 +98,20 @@
 ```pip install pyTEM` -->
 
 <h2 id="staying-updated">Staying updated</h2>
-<p>To use the package and keep updated, just</p>
+<p>The package will be installed like a simple <code>pip install pyTEMx</code>, only that
+the name <code>pytem</code> is already reserved at PyPI.org.</p>
+<p>The package is hosted at <a href="https://github.com/TUBAF-EM/pyTEM">https://github.com/TUBAF-EM/pyTEM</a></p>
+<p>To use the package and keep updated:</p>
 <ol>
-<li><code>git clone</code> the repository and go to its location with bash, PowerShell etc.</li>
+<li>Clone the source code
+<code>git clone https://github.com/TUBAF-EM/pyTEM.git</code></li>
+<li>go to its location with bash, PowerShell etc.</li>
 <li>install the code editable by <code>pip install -e .</code></li>
-<li>Update at any later time by <code>git pull</code> (no further step needed)</li>
+<li>Update at any later time by <code>git pull</code></li>
 </ol>
-<p>If you use UV, the simplest way is to create a virtual environment by typing <code>uv run</code> in the project folder which will care for all
-dependencies (like empymod and pyGIMLi).
+<p>If you use UV, the simplest way is to create a virtual environment by typing
+<code>uv run</code> in the project folder which will care for all dependencies (like
+empymod or pyGIMLi).
 As a result, a virtual environment <code>.venv</code> is created
 in the main folder and if you open the folder in VSCode it is chosen as default environment.
 For use with VSCode, you should also <code>pip install ipykernel</code>.</p></div>
