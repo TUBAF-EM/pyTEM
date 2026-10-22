@@ -40,7 +40,7 @@ class TEM:
     def readCFG(self, cfg):
         """Read data file (xyz)."""
         self.cfg = readSettings(cfg)
-        self.createForwardOperator()
+        self.f = self.createForwardOperator()
 
     @property
     def layers(self):
@@ -51,26 +51,22 @@ class TEM:
     def layers(self, layers):
         """Set layer thicknesses."""
         self.thk = layers
-        self.createForwardOperator()
+        self.f = self.createForwardOperator()
 
     def createForwardOperator(self, thk=None):
         """Create a forward operator from the given cfg."""
         if thk is not None:
             self.thk = thk
-
         # check if single or dual mode
-        print(self.cfg.keys())
         if 'timeL' in self.cfg and 'timeH' in self.cfg:
-            print("set dual mode")
-            self.f = TEMRhoModellingDualMode(thk=self.thk, cfg=self.cfg)
+            f = TEMRhoModellingDualMode(thk=self.thk, cfg=self.cfg)
         elif 'time' in self.cfg:
-            print("set single mode")
-            self.f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
+            f = TEMRhoModelling(thk=self.thk, cfg=self.cfg)
         else:
             raise BaseException("could not get time")
 
-        print("ready")
-        self.t = self.f.t
+        self.t = f.t
+        return f
 
     def showWaveform(self, shutoff=False, label="", ax=None):
         """Show current waveform."""
@@ -285,7 +281,7 @@ class TEM:
         if "Station" in new.data:
             new.data.set_index("Station", inplace=True)
 
-        new.createForwardOperator()
+        new.f = new.createForwardOperator()
         new.extractData()
         return new
 
@@ -330,23 +326,24 @@ class TEM:
                 t = self.cfg[tt]
                 self.cfg[tt] = t[np.nonzero(np.bitwise_and(t <= tmax, t > tmin))[0]]
 
-            self.createForwardOperator()
+            self.f = self.createForwardOperator()
             # self.calcRhoa()
             # self.t = self.t[it]  # wrong
 
     def invertSounding(self, n=0, index=None, minerr=0.015, thk=None, show=True, **kwargs):
         """Invert data."""
         if thk is not None or not hasattr(self, "f"):
-            self.createForwardOperator(thk=thk)
+            self.f = self.createForwardOperator(thk=thk)
 
         if index is not None:
             n = np.nonzero(self.data.index == index)[0][0]
 
         inv = pg.Inversion(fop=self.f)
-        # inv.dataTrans = "log" # not really necessary
+        inv.dataTrans = kwargs.pop("dataTrans", "arsinh")
         data = np.abs(self.DATA[n])
         err = np.maximum(self.SD[n], minerr)
         err[self.DATA[n] < 1e-15] = 1e8
+        err[self.t > kwargs.pop("maxt", 1)] = 1e8
         err[err > 1] = 1e8
         err[~np.isfinite(data)] = 1e8
         data[~np.isfinite(data)] = 1e-10
@@ -362,7 +359,7 @@ class TEM:
         data = inv.dataVals
         fig, ax = plt.subplots(ncols=2)
         pg.viewer.mpl.drawModel1D(ax[0], self.thk, self.res1d, plot="semilogx")
-        ax[0].invert_yaxis()
+        # ax[0].invert_yaxis()
         ax[1].errorbar(self.t, data, yerr=inv.errorVals*data, marker="+", ls="None", label="data")
         ax[1].set_xscale('log')
         ax[1].set_yscale('log')
@@ -376,6 +373,33 @@ class TEM:
 
         ax[1].grid()
         return ax
+
+    def simulate(self, rho=3000, thk=[], show=False, **kwargs):
+        """Carry out synthetic simulation."""
+        f = self.createForwardOperator(thk=np.atleast_1d(thk))
+        response = f.response(np.atleast_1d(rho))
+        rhoa = kwargs.pop("rhoa", False)
+        if show is not None:
+            if isinstance(show, int):
+                ax = self.showSounding(17, rhoa=rhoa)
+            else:
+                _ , ax = plt.subplots()
+
+            if rhoa:
+                from .tools import rhoa
+                response = rhoa(self.t, response)
+
+            color = kwargs.pop("color", None)
+            alln = np.hstack([np.nonzero(np.diff(self.t)<0)[0]+1, len(self.t)])
+            n0 = 0
+            for nn in alln:
+                li = ax.plot(self.t[n0:nn], response[n0:nn], color=color)[0]
+                color = li.get_color() if color is None else None
+                n0 = nn
+
+            ax.grid(True)
+
+        return response
 
     def invertAll(self, show=True, minerr=0.01):
         """Invert all data individually."""
