@@ -359,7 +359,7 @@ class TEM:
         data = inv.dataVals
         fig, ax = plt.subplots(ncols=2)
         pg.viewer.mpl.drawModel1D(ax[0], self.thk, self.res1d, plot="semilogx")
-        # ax[0].invert_yaxis()
+        ax[0].invert_yaxis()
         ax[1].errorbar(self.t, data, yerr=inv.errorVals*data, marker="+", ls="None", label="data")
         ax[1].set_xscale('log')
         ax[1].set_yscale('log')
