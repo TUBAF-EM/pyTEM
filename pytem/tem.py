@@ -256,9 +256,11 @@ class TEM:
         """Show sounding positions."""
         fig, ax = plt.subplots()
 
+        color = kwargs.get("color", "black")
         ax.plot(self.x, self.y, "x", **kwargs)
         for i in range(0, len(self.x), every):
-            ax.text(self.x[i], self.y[i], str(self.data.index[i]), va="center", ha="center")
+            ax.text(self.x[i], self.y[i], str(self.data.index[i]),
+                    va="center", ha="center", color=color)
 
         ax.set_aspect(1.0)
         ax.grid(True)
@@ -381,7 +383,7 @@ class TEM:
         rhoa = kwargs.pop("rhoa", False)
         if show is not None:
             if isinstance(show, int):
-                ax = self.showSounding(17, rhoa=rhoa)
+                ax = self.showSounding(show, rhoa=rhoa)
             else:
                 _ , ax = plt.subplots()
 

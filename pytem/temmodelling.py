@@ -222,6 +222,60 @@ class TEMRhoModellingDualMode(TEMRhoModelling):
                    freqtime=self.timeH,      # Wanted times.
                    **self.kw).sum(axis=1)])
 
+def pelton_cole_cole_model(inp, p_dict):
+    """
+    Pelton et al. (1978) Cole-Cole IP model.
+
+    Inputs expected in `inp`:
+    - res   : DC resistivity (Ohm-m)
+    - m     : intrinsic chargeability (V/V), 0 <= m < 1
+    - tau   : time constant (s)
+    - c     : frequency dependency, 0 < c < 1
+
+    Returns complex electrical conductivity (etaH, etaV).
+    """
+    # Compute complex resistivity from Pelton et al.
+    iotc = np.outer(2j * np.pi * p_dict["freq"], inp["tau"]) ** inp["c"]
+
+    # Version using equation 16 of Tarasov & Titov (2013)
+    rhoH = inp["res"] * (1 + inp["m"] / (1 - inp["m"]) / (1 + iotc))
+    rhoV = rhoH * p_dict["aniso"] ** 2
+
+    # Add electric permittivity contribution
+    etaH = 1 / rhoH + 1j * p_dict["etaH"].imag
+    etaV = 1 / rhoV + 1j * p_dict["etaV"].imag
+
+    return etaH, etaV
+
+
+def modelTEMResIP(cfg, thk, res, m, tau, c=0.5, time=None):
+    """Empymod wrapper with IP using Pelton (1978)."""
+    res = np.atleast_1d(res) # make sure array
+    if isinstance(m, (float, int)):
+        m = np.ones_like(res) * m
+    if isinstance(tau, (float, int)):
+        tau = np.ones_like(res) * tau
+    if isinstance(c, (float, int)):
+        c = np.ones_like(res) * c
+
+    cfg.setdefault("signal", -1)  # shut-off
+    if time is None:
+        time = np.logspace(-5, -2.5, 31)
+        cfg.setdefault("freqtime", time)
+    else:
+        cfg["freqtime"] = time
+
+    cfg["depth"] = np.concatenate([[0], np.cumsum(thk)])
+    resIP = {
+        "func_eta": pelton_cole_cole_model,
+        "res": np.concatenate([[2e14], res]),
+        "m": np.concatenate([[0], m]),
+        "tau": np.concatenate([[1e-6], tau]),
+        "c": np.concatenate([[0.1], c])
+    }
+    return -bipole(res=resIP, **cfg).sum(axis=1)
+
+
 # %%
 if __name__ == "__main__":
     f = TEMRhoModelling(thk=np.arange(2, 28, 2), cfg="sTEM.gex")
