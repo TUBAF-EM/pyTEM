@@ -1,0 +1,12 @@
+cff-version: 0.2
+title: Time-domain Electromagnetics (TDEM)
+message: There is no paper yet
+type: software
+authors:
+  - given-names: Thomas
+    family-names: Günther
+    email: thomas@pygimli.org
+    orcid: 'https://orcid.org/0000-0001-5409-0273'
+repository-code: 'https://github.com/TUBAF-EM/pyTEM'
+url: 'https://tubaf-em.github.io/pytem'
+license: Apache-2.0

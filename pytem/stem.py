@@ -51,7 +51,9 @@ def readSettings(filename="sTEM.gex", ramptime=None):
     out = readGEXFile(filename)
     cfg = {}
     cfg["rxpos"] = out["RxCoilPosition1"]
-    cfg["txpos"] = out["TxCoilPosition1"]
+    if "TxCoilPosition1" in out:
+        cfg["txpos"] = out["TxCoilPosition1"]
+
     if "TxLoopPoint1" in out:
         txp = collectNumData(out, "TxLoopPoint")
         cfg["tx"], cfg["ty"] = txp[:, 0], txp[:, 1]
