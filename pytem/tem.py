@@ -231,7 +231,7 @@ class TEM:
             n0 = nn
 
         ax.set_xlabel("Time (s)")
-        ylabel = r"$\rho_a$ [$\Omega$m]" if rhoa else r"$dB/dt$ [V/(m²s)]"
+        ylabel = r"$\rho_a$ [$\Omega$m]" if rhoa else r"$dB/dt$ [V/m²]"
         ax.set_ylabel(ylabel)
         ax.set_xscale('log')
         ax.set_yscale('log')
