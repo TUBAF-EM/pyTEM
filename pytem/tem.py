@@ -130,6 +130,19 @@ class TEM:
         else:
             raise ImportError("Could not get positions")
 
+    def showGeometry(self, ax=None):
+        """Show sounding geometry."""
+        if ax is None:
+            fig, ax = plt.subplots()
+
+        tx = np.concatenate([self.cfg["tx"], [self.cfg["tx"][0]]])
+        ty = np.concatenate([self.cfg["ty"], [self.cfg["ty"][0]]])
+        ax.plot(tx, ty, "o-")
+        ax.plot(*self.cfg["rxpos"][:2], "x-")
+        ax.set_aspect(1.0)
+        ax.grid(True)
+        return ax
+
     def calcRhoa(self, rmin=1, rmax=10000):
         """Compute apparent resistivity."""
         self.RHOA = np.zeros_like(self.DATA)
